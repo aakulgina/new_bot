@@ -1,5 +1,5 @@
 from model import StyleTransferModel
-from config import greeting, explaining, start_working_text, end_working_text
+from config import greeting, start_working_text, end_working_text
 from telegram_token import token
 import numpy as np
 from PIL import Image
