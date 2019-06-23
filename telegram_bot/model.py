@@ -1,42 +1,47 @@
+"""
+Some code was taken from https://github.com/pytorch/examples/tree/master/fast_neural_style
+"""
+
+import re
 from PIL import Image
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision.transforms as transforms
-import torchvision.models as models
-from scipy import misc
+from torch.optim import Adam
+from torchvision import transforms
 
+from transformer_net import TransformerNet
+from vgg import Vgg16
 
-# В данном классе мы хотим полностью производить всю обработку картинок, которые поступают к нам из телеграма.
-# Это всего лишь заготовка, поэтому не стесняйтесь менять имена функций, добавлять аргументы, свои классы и
-# все такое.
 class StyleTransferModel:
     def __init__(self):
         # Сюда необходимо перенести всю иницализацию, вроде загрузки свеерточной сети и т.д.
         pass
 
-    def transfer_style(self, content_img_stream, style_img_stream):
-        # Этот метод по переданным картинкам в каком-то формате (PIL картинка, BytesIO с картинкой
-        # или numpy array на ваш выбор). В телеграм боте мы получаем поток байтов BytesIO,
-        # а мы хотим спрятать в этот метод всю работу с картинками, поэтому лучше принимать тут эти самые потоки
-        # и потом уже приводить их к PIL, а потом и к тензору, который уже можно отдать модели.
-        # В первой итерации, когда вы переносите уже готовую модель из тетрадки с занятия сюда нужно просто
-        # перенести функцию run_style_transfer (не забудьте вынести инициализацию, которая
-        # проводится один раз в конструктор.
+    def transfer_style(self, content_img_stream):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        content_image = self.process_image(content_img_stream)
+        model_path = '../../mosaic.pth'
+        
+        with torch.no_grad():
+            style_model = TransformerNet()
+            state_dict = torch.load(model_path)
+            # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
+            for k in list(state_dict.keys()):
+                if re.search(r'in\d+\.running_(mean|var)$', k):
+                    del state_dict[k]
+            style_model.load_state_dict(state_dict)
+            style_model.to(device)
+            output = style_model(content_image).cpu()
+            # НЕ ЗАБУДЬ ВОТ ТУТ ПОДУМАТЬ ПРО ТО, ЧТОБЫ СДЕЛАТЬ ЕМУ СКВИЗ
+            # А ТО ЕСТЬ ОПАСНОСТЬ, ЧТО ТАК ОНО НА СТАДИИ БОТА НИХРЕНА НЕ ЗАРАБОТАЕТ
+            # а еще есть смысл подумать о том, чтобы махнуть местами дайменшнс
+            # и, МЭЙБИ, о том, чтобы сделать из этого нампи эррэй
+        
+        return output
 
-        # Сейчас этот метод просто возвращает не измененную content картинку
-        # Для наглядности мы сначала переводим ее в тензор, а потом обратно
-        return misc.toimage(self.process_image(content_img_stream)[0])
-
-    # В run_style_transfer используется много внешних функций, их можно добавить как функции класса
-    # Если понятно, что функция является служебной и снаружи использоваться не должна, то перед именем функции
-    # принято ставить _ (выглядит это так: def _foo() )
-    # Эта функция тоже не является
     def process_image(self, img_stream):
         # TODO размер картинки, device и трансформации не меняются в течении всей работы модели,
         # поэтому их нужно перенести в конструктор!
-        imsize = 128
+        imsize = 512
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(device)
         loader = transforms.Compose([
