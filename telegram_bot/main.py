@@ -1,6 +1,7 @@
 from model import StyleTransferModel
-from config import greeting, start_working_text, end_working_text
+from config import greeting_text, start_working_text, end_working_text, see_you_text
 from telegram_token import token
+from telegram.ext import CommandHandler
 import numpy as np
 from PIL import Image
 from io import BytesIO
@@ -39,6 +40,8 @@ def send_prediction_on_photo(bot, update):
     print("Notified {} before sending photo".format(chat_id))
     bot.send_photo(chat_id, photo=output_stream)
     print("Sent Photo to {}".format(chat_id))
+    bot.send_message(chat_id, text=see_you_text)
+    print("Sent {} further instructions".format(chat_id))
 
 
 if __name__ == '__main__':
@@ -49,12 +52,12 @@ if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
-    # используем прокси, так как без него у меня ничего не работало.
-    # если есть проблемы с подключением, то попробуйте убрать прокси или сменить на другой
-    # проекси ищется в гугле как "socks4 proxy"
-    updater = Updater(token=token,  request_kwargs={'proxy_url': 'socks4://168.195.171.42:44880'})
+    # используем прокси
+    updater = Updater(token=token, request_kwargs={'proxy_url': 'socks4://89.169.8.89:4145'})
 
     # В реализации большого бота скорее всего будет удобнее использовать Conversation Handler
     # вместо назначения handler'ов таким способом
-    updater.dispatcher.add_handler(MessageHandler(greet_n_explain, Filters.photo, send_prediction_on_photo))
+    updater.dispatcher.add_handler(CommandHandler('start',greet_n_explain))
+    updater.dispatcher.add_handler(CommandHandler('help',greet_n_explain))
+    updater.dispatcher.add_handler(MessageHandler(Filters.photo, send_prediction_on_photo))
     updater.start_polling()
