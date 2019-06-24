@@ -7,13 +7,14 @@ import numpy as np
 from PIL import Image
 import torch
 from torchvision import transforms
+from scipy import misc
 
 from transformer_net import TransformerNet
 from vgg import Vgg16
 
 class StyleTransferModel:
     def __init__(self):
-        self.imsize = 700
+        self.imsize = 256
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.loader = transforms.Compose([
             transforms.Resize(self.imsize),  # нормируем размер изображения
@@ -36,7 +37,7 @@ class StyleTransferModel:
             output = np.array(output.squeeze(0))
             output = output.transpose(1, 2, 0).astype("uint8")
         
-        return output
+        return misc.toimage(output)
 
     def process_image(self, img_stream):
         print(self.device)
