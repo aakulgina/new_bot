@@ -3,9 +3,9 @@ Some code was taken from https://github.com/pytorch/examples/tree/master/fast_ne
 """
 
 import re
+import numpy as np
 from PIL import Image
 import torch
-from torch.optim import Adam
 from torchvision import transforms
 
 from transformer_net import TransformerNet
@@ -13,42 +13,34 @@ from vgg import Vgg16
 
 class StyleTransferModel:
     def __init__(self):
-        # Сюда необходимо перенести всю иницализацию, вроде загрузки свеерточной сети и т.д.
-        pass
-
-    def transfer_style(self, content_img_stream):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        content_image = self.process_image(content_img_stream)
-        model_path = '../../mosaic.pth'
+        self.imsize = 700
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.loader = transforms.Compose([
+            transforms.Resize(self.imsize),  # нормируем размер изображения
+            transforms.ToTensor()])  # превращаем в удобный формат
+        self.state_dict = torch.load('mosaic.pth')
+        self.style_model = TransformerNet()
         
+        pass
+    
+    def transfer_style(self, content_img_stream):
+        content_image = self.process_image(content_img_stream)
         with torch.no_grad():
-            style_model = TransformerNet()
-            state_dict = torch.load(model_path)
             # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
-            for k in list(state_dict.keys()):
+            for k in list(self.state_dict.keys()):
                 if re.search(r'in\d+\.running_(mean|var)$', k):
-                    del state_dict[k]
-            style_model.load_state_dict(state_dict)
-            style_model.to(device)
-            output = style_model(content_image).cpu()
-            # НЕ ЗАБУДЬ ВОТ ТУТ ПОДУМАТЬ ПРО ТО, ЧТОБЫ СДЕЛАТЬ ЕМУ СКВИЗ
-            # А ТО ЕСТЬ ОПАСНОСТЬ, ЧТО ТАК ОНО НА СТАДИИ БОТА НИХРЕНА НЕ ЗАРАБОТАЕТ
-            # а еще есть смысл подумать о том, чтобы махнуть местами дайменшнс
-            # и, МЭЙБИ, о том, чтобы сделать из этого нампи эррэй
+                    del self.state_dict[k]
+            self.style_model.load_state_dict(self.state_dict)
+            self.style_model.to(self.device)
+            output = self.style_model(content_image).cpu()
+            output = np.array(output.squeeze(0))
+            output = output.transpose(1, 2, 0).astype("uint8")
         
         return output
 
     def process_image(self, img_stream):
-        # TODO размер картинки, device и трансформации не меняются в течении всей работы модели,
-        # поэтому их нужно перенести в конструктор!
-        imsize = 512
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(device)
-        loader = transforms.Compose([
-            transforms.Resize(imsize),  # нормируем размер изображения
-            transforms.CenterCrop(imsize),
-            transforms.ToTensor()])  # превращаем в удобный формат
-
+        print(self.device)
         image = Image.open(img_stream)
-        image = loader(image).unsqueeze(0)
-        return image.to(device, torch.float)
+        image = self.loader(image).unsqueeze(0)
+        
+        return image.to(self.device, torch.float)
