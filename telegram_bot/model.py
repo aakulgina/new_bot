@@ -12,7 +12,6 @@ from scipy import misc
 import torch
 from torchvision import transforms
 from transformer_net import TransformerNet
-from vgg import Vgg16
 
 
 class StyleTransferModel:
